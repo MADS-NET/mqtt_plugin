@@ -160,7 +160,8 @@ public:
   map<string, string> info() override {
     return {
       {"Broker:", _params["broker_host"].get<string>() + ":" + to_string(_params["broker_port"])},
-      {"Topic:", _params["topic"].get<string>() + ", QoS: " + _params["QoS"].get<string>()},
+      {"Topic:", _params["topic"].get<string>()},
+      {"QoS: ", to_string(_params["QoS"].get<int>())},
       {"Silent:", _params["silent"] ? "true" : "false"}
     };
   };
