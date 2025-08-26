@@ -100,6 +100,7 @@ include_directories(${json_SOURCE_DIR}/include)
 
 # These plugins are always build and use for testing
 add_plugin(mqtt2mads LIBS PkgConfig::mosquitto)
+add_plugin(mads2mqtt LIBS PkgConfig::mosquitto)
 
 
 # INSTALL ######################################################################

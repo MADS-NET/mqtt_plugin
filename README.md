@@ -1,11 +1,17 @@
-# mqtt2mads plugin for MADS
+# MQTT plugins for MADS
 
-This is a Source plugin for [MADS](https://github.com/MADS-NET/MADS). 
+This is a project providing Source and Sink plugins for [MADS](https://github.com/MADS-NET/MADS). 
 
-The plugin provides a bridge between a MQTT network and the MADS network, i.e., it subscribes to a MQTT topic and publishes the received messages to the MADS network.
+The plugins provides a bridge between a MQTT network and the MADS network. Compilation results in two plugins:
+
+* `mqtt2mads.plugin`: A Source plugin that subscribes to a MQTT topic and publishes the received messages to the MADS network.
+* `mads2mqtt.plugin`: A Sink plugin that receives messages from the MADS network and publishes them to a MQTT topic.
 
 *Required MADS version: 1.0.1.*
 
+## Requirements
+
+The system must provide `libmosquitto` and `libmosquittopp` libraries and development files.
 
 ## Supported platforms
 
@@ -37,6 +43,13 @@ broker_port = 1883        # MQTT broker port
 silent = true             # If true, no log messages are printed
 QoS = 0                   # MQTT Quality of Service
 topic = "#"               # MQTT topic to subscribe to
+
+[mads2mqtt]
+broker_host = "localhost" # MQTT broker host
+broker_port = 1883        # MQTT broker port
+silent = true             # If true, no log messages are printed
+QoS = 0                   # MQTT Quality of Service
+topic = "mads"            # MQTT topic to publish to
 ```
 
 All settings are optional; if omitted, the default values are used.

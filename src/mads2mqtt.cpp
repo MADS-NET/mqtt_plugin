@@ -13,7 +13,7 @@
 # NOTICE: MADS Version 1.0.1
 */
 // Mandatory included headers
-#include <source.hpp>
+#include <sink.hpp>
 #include <nlohmann/json.hpp>
 #include <pugg/Kernel.h>
 // other includes as needed here
@@ -23,7 +23,7 @@
 
 // Define the name of the plugin
 #ifndef PLUGIN_NAME
-#define PLUGIN_NAME "mqtt2mads"
+#define PLUGIN_NAME "mads2mqtt"
 #endif
 #define NO_ERROR "No Error"
 
@@ -36,7 +36,7 @@ using namespace mosqpp;
 
 // Plugin class. This shall be the only part that needs to be modified,
 // implementing the actual functionality
-class Mqtt2madsPlugin : public Source<json>, public mosquittopp {
+class Mads2mqttPlugin : public Sink<json>, public mosquittopp {
 
 public:
 
@@ -60,17 +60,16 @@ public:
     int port = _params["broker_port"];
 
     lib_init();
-    reinitialise("MQTT2MADS-bridge", true);
+    reinitialise("MADS2MQTT-bridge", true);
     loop_start();
     if (connect_async(host.c_str(), port, 5) != MOSQ_ERR_SUCCESS) {
       cerr << "Failed to connect to MQTT broker" << endl;
       status = return_type::critical;
     } 
-    // subscribe(NULL, topic.c_str(), 0);
     return status;
   }
 
-  ~Mqtt2madsPlugin() {
+  ~Mads2mqttPlugin() {
     disconnect();
     mosqpp::lib_cleanup();
   }
@@ -78,21 +77,7 @@ public:
   void on_connect(int rc) override {
     if (!_params["silent"])
       cerr << "Connected with code " << rc << endl;
-    subscribe(NULL, _params["topic"].get<string>().c_str(), 0);
     _connected = true;
-    return;
-  }
-
-  void on_subscribe(int mid, int qos_count, const int *granted_qos) override {
-    if (!_params["silent"])
-      cerr << "Subscribed to " << _params["topic"].get<string>() << " QoS: " << *granted_qos
-           << endl;
-    return;
-  }
-
-  void on_unsubscribe(int mid) override {
-    if (!_params["silent"])
-      cerr << "Unsubscribed from " << _params["topic"].get<string>() << endl;
     return;
   }
 
@@ -103,23 +88,6 @@ public:
     return;
   }
 
-  void on_message(const struct mosquitto_message *message) override {
-    _data.clear();
-    try {
-      _data = json::parse((char *)(message->payload));
-      _error = NO_ERROR;
-    } catch (json::parse_error &e) {
-      _error = e.what();
-      _data["error"] = "Error parsing invalid JSON received from MQTT";
-      _data["reason"] = _error;
-      _data["content"] = (char *)(message->payload);
-    }
-    _topic = message->topic;
-    if (!_params["silent"])
-      cerr << "Received message on topic " << _topic << ", status: " 
-           << _error << endl;
-    return;
-  }
 
 /*
   ____  _    _   _  ____ ___ _   _ 
@@ -129,36 +97,44 @@ public:
  |_|   |_____\___/ \____|___|_| \_|
                                    
 */
-  return_type get_output(json &out, std::vector<unsigned char> *blob = nullptr) override {
+
+  return_type load_data(json const &input, string topic = "") override {
     if (!_connected) {
       reconnect_async();
       while (!_connected) {
         this_thread::sleep_for(chrono::milliseconds(100));
       }
     }
-    if(_data.is_null() || _data.empty()) {
-      _data.clear();
-      return return_type::retry;
-    }
-    out.clear();
-    out["payload"] = _data;
-    out["topic"] = _topic;
-    if (!_agent_id.empty()) out["agent_id"] = _agent_id;
-    _data.clear();
-    this_thread::sleep_for(chrono::microseconds(500));
-    if (_error != NO_ERROR) 
+    json jpl;
+    jpl["mads_topic"] = topic;
+    jpl["payload"] = input;
+    int mid = 0;
+    string payload;
+    try {
+      payload = jpl.dump();
+    } catch (const std::exception &e) {
+      cerr << "Error serializing JSON: " << e.what() << endl;
       return return_type::error;
-    else
-      return return_type::success;
+    }
+    if (!_params["silent"]) {
+      cerr << "Publishing " << payload << " to topic " << topic << endl;
+    }
+    int rv = publish(&mid, _params["topic"].dump().c_str(), payload.size(), payload.c_str(), _params["QoS"], false);
+
+    if (rv != MOSQ_ERR_SUCCESS) {
+      cerr << "Error publishing MQTT message: " << mosqpp::strerror(rv) << endl;
+      return return_type::error;
+    }
+    return return_type::success;
   }
 
   void set_params(void const *params) override {
-    Source::set_params(params);
+    Sink::set_params(params);
     _params["broker_host"] = "localhost";
     _params["broker_port"] = 1883;
     _params["silent"] = true;
     _params["QoS"] = 0;
-    _params["topic"] = "#";
+    _params["topic"] = "mads";
     _params.merge_patch(*(json *)params);
     setup();
     while (!_connected) {
@@ -191,7 +167,7 @@ private:
                 |___/
 Enable the class as plugin
 */
-INSTALL_SOURCE_DRIVER(Mqtt2madsPlugin, json)
+INSTALL_SINK_DRIVER(Mads2mqttPlugin, json)
 
 
 /*
@@ -206,12 +182,15 @@ For testing purposes, when directly executing the plugin
 static bool running = true;
 
 int main(int argc, char const *argv[]) {
-  Mqtt2madsPlugin plugin;
+  Mads2mqttPlugin plugin;
   json output, params;
 
   params["broker_host"] = "localhost";
   params["broker_port"] = 1883;
-  
+  params["topic"] = "mads";
+  params["silent"] = false;
+  params["QoS"] = 0;
+
   if (argc >= 2) {
     params["broker_host"] = argv[1];
   }
@@ -219,9 +198,6 @@ int main(int argc, char const *argv[]) {
   if (argc >= 3) {
     params["broker_port"] = atoi(argv[2]);
   }
-
-  params["topic"] = "#";
-  params["silent"] = false;
 
   // Set parameters
   plugin.set_params(&params);
@@ -232,9 +208,25 @@ int main(int argc, char const *argv[]) {
   });
 
   // Process data
+  string line = "";
   while (running) {
-    if (plugin.get_output(output) == return_type::success) 
-      cout << "MQTT: " << output.dump(2) << endl;
+    getline(cin, line);
+    if (!line.empty()) {
+      json message;
+      try {
+        message = json::parse(line);
+      } catch (const std::exception &e) {
+        cerr << "Error parsing JSON: " << e.what() << endl;
+        continue;
+      }
+      auto rt = plugin.load_data(message);
+      if (rt != return_type::success) {
+        cerr << "Failed to load data" << endl;
+      }
+    } else {
+      cerr << "Empty input line" << endl;
+      break;
+    }
   }
   
   return 0;
