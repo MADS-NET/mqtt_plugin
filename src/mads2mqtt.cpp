@@ -119,7 +119,7 @@ public:
     if (!_params["silent"]) {
       cerr << "Publishing " << payload << " to topic " << topic << endl;
     }
-    int rv = publish(&mid, _params["topic"].dump().c_str(), payload.size(), payload.c_str(), _params["QoS"], false);
+    int rv = publish(&mid, _params["topic"].get<string>().c_str(), payload.size(), payload.c_str(), _params["QoS"], false);
 
     if (rv != MOSQ_ERR_SUCCESS) {
       cerr << "Error publishing MQTT message: " << mosqpp::strerror(rv) << endl;
@@ -145,7 +145,7 @@ public:
   map<string, string> info() override {
     return {
       {"Broker:", _params["broker_host"].get<string>() + ":" + to_string(_params["broker_port"])},
-      {"Topic:", _params["topic"].get<string>()},
+      {"Topic:", _params.value("topic", "mads")},
       {"QoS: ", to_string(_params["QoS"].get<int>())},
       {"Silent:", _params["silent"] ? "true" : "false"}
     };
