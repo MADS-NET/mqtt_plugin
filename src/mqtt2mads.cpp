@@ -78,7 +78,7 @@ public:
   void on_connect(int rc) override {
     if (!_params["silent"])
       cerr << "Connected with code " << rc << endl;
-    subscribe(NULL, _params["topic"].get<string>().c_str(), 0);
+    subscribe(NULL, _params["topic"].get<string>().c_str(), _params["QoS"].get<int>());
     _connected = true;
     return;
   }
