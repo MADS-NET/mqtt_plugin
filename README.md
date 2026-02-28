@@ -7,7 +7,7 @@ The plugins provides a bridge between a MQTT network and the MADS network. Compi
 * `mqtt2mads.plugin`: A Source plugin that subscribes to a MQTT topic and publishes the received messages to the MADS network.
 * `mads2mqtt.plugin`: A Sink plugin that receives messages from the MADS network and publishes them to a MQTT topic.
 
-*Required MADS version: 1.0.1.*
+> This plugin has been updated for MADS v2
 
 ## Requirements
 

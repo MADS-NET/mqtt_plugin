@@ -129,7 +129,7 @@ public:
  |_|   |_____\___/ \____|___|_| \_|
                                    
 */
-  return_type get_output(json &out, std::vector<unsigned char> *blob = nullptr) override {
+  return_type get_output(json &out, vector<unsigned char> *blob = nullptr) override {
     if (!_connected) {
       reconnect_async();
       while (!_connected) {
@@ -152,14 +152,14 @@ public:
       return return_type::success;
   }
 
-  void set_params(void const *params) override {
+  void set_params(const json &params) override {
     Source::set_params(params);
     _params["broker_host"] = "localhost";
     _params["broker_port"] = 1883;
     _params["silent"] = true;
     _params["QoS"] = 0;
     _params["topic"] = "#";
-    _params.merge_patch(*(json *)params);
+    _params.merge_patch(params);
     setup();
     while (!_connected) {
       this_thread::sleep_for(chrono::milliseconds(100));
@@ -224,7 +224,7 @@ int main(int argc, char const *argv[]) {
   params["silent"] = false;
 
   // Set parameters
-  plugin.set_params(&params);
+  plugin.set_params(params);
 
   signal(SIGINT, [](int s) {
     cout << "Interrupted" << endl;
